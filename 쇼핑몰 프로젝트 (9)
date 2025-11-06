@@ -1,0 +1,274 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+#define MAX_PRODUCTS 5
+#define DATA_FILE "products.txt"
+
+typedef struct {
+    char name[100];
+    int price;
+    int stock_in;
+    int sales_out;
+} Product;
+
+Product products[MAX_PRODUCTS];
+
+void initialize_products();
+void handle_stock_in();
+void handle_sales_out();
+void display_individual_status();
+void display_all_status();
+void save_data();
+void load_data();
+void clear_buffer();
+
+int main() {
+    int choice;
+    initialize_products();
+
+    while (1) {
+        printf("\n--- 쇼핑몰 재고 관리 시스템 ---\n");
+        printf("1. 입고 (상품등록)\n");
+        printf("2. 판매\n");
+        printf("3. 개별현황\n");
+        printf("4. 전체현황\n");
+        printf("5. 상품정보 저장\n");
+        printf("6. 상품정보 가져오기\n");
+        printf("7. 종료\n");
+        printf("-----------------------------\n");
+        printf("원하는 메뉴를 선택하세요: ");
+
+        if (scanf("%d", &choice) != 1) {
+            printf(">> 잘못된 입력입니다. 숫자를 입력해주세요.\n");
+            clear_buffer();
+            continue;
+        }
+        clear_buffer();
+
+        switch (choice) {
+        case 1: handle_stock_in(); break;
+        case 2: handle_sales_out(); break;
+        case 3: display_individual_status(); break;
+        case 4: display_all_status(); break;
+        case 5: save_data(); break;
+        case 6: load_data(); break;
+        case 7:
+            printf("프로그램을 종료합니다.\n");
+            return 0;
+        default:
+            printf(">> 잘못된 메뉴 선택입니다 (1~7).\n");
+        }
+    }
+    return 0;
+}
+
+void clear_buffer() {
+    while (getchar() != '\n');
+}
+
+void initialize_products() {
+    for (int i = 0; i < MAX_PRODUCTS; i++) {
+        strcpy(products[i].name, "");
+        products[i].price = 0;
+        products[i].stock_in = 0;
+        products[i].sales_out = 0;
+    }
+}
+
+void handle_stock_in() {
+    int id, qty, price;
+    printf("\n[입고 메뉴]\n");
+    printf("상품 ID를 입력하세요 (1~%d): ", MAX_PRODUCTS);
+    scanf("%d", &id);
+    clear_buffer();
+
+    if (id < 1 || id > MAX_PRODUCTS) {
+        printf(">> 잘못된 상품 ID입니다.\n");
+        return;
+    }
+
+    int idx = id - 1;
+
+    if (strlen(products[idx].name) == 0) {
+        printf("신규 상품입니다.\n");
+        printf("상품명 입력: ");
+        fgets(products[idx].name, sizeof(products[idx].name), stdin);
+        products[idx].name[strcspn(products[idx].name, "\n")] = 0;
+
+        printf("판매가격 입력: ");
+        scanf("%d", &products[idx].price);
+        clear_buffer();
+    }
+    else {
+        printf("기존 상품 선택: %s (현재 가격: %d원)\n", products[idx].name, products[idx].price);
+        printf("가격을 변경하시겠습니까? (변경안함: -1 입력, 변경: 새 가격 입력): ");
+        int new_price;
+        scanf("%d", &new_price);
+        clear_buffer();
+        if (new_price != -1) {
+            products[idx].price = new_price;
+        }
+    }
+
+    printf("입고 수량 입력: ");
+    scanf("%d", &qty);
+    clear_buffer();
+
+    if (qty > 0) {
+        products[idx].stock_in += qty;
+        printf(">> 입고 완료! (총 입고량: %d)\n", products[idx].stock_in);
+    }
+    else {
+        printf(">> 입고 수량은 양수여야 합니다.\n");
+    }
+}
+
+void handle_sales_out() {
+    int id, qty;
+    printf("\n[판매 메뉴]\n");
+    printf("상품 ID를 입력하세요 (1~%d): ", MAX_PRODUCTS);
+    scanf("%d", &id);
+    clear_buffer();
+
+    if (id < 1 || id > MAX_PRODUCTS) {
+        printf(">> 잘못된 상품 ID입니다.\n");
+        return;
+    }
+
+    int idx = id - 1;
+    if (strlen(products[idx].name) == 0) {
+        printf(">> 등록되지 않은 상품입니다. 입고부터 진행해주세요.\n");
+        return;
+    }
+
+    int current_stock = products[idx].stock_in - products[idx].sales_out;
+    printf("선택 상품: %s (현재 재고: %d개, 가격: %d원)\n", products[idx].name, current_stock, products[idx].price);
+    printf("판매할 수량 입력: ");
+    scanf("%d", &qty);
+    clear_buffer();
+
+    if (qty <= 0) {
+        printf(">> 판매 수량은 1개 이상이어야 합니다.\n");
+    }
+    else if (qty > current_stock) {
+        printf(">> 재고가 부족합니다! (현재 재고: %d개)\n", current_stock);
+    }
+    else {
+        products[idx].sales_out += qty;
+        printf(">> 판매 완료! (총 판매량: %d)\n", products[idx].sales_out);
+    }
+}
+
+void display_individual_status() {
+    int id;
+    printf("\n[개별 상품 현황]\n");
+    printf("조회할 상품 ID를 입력하세요 (1~%d): ", MAX_PRODUCTS);
+    scanf("%d", &id);
+    clear_buffer();
+
+    if (id < 1 || id > MAX_PRODUCTS) {
+        printf(">> 잘못된 상품 ID입니다.\n");
+        return;
+    }
+
+    int idx = id - 1;
+    if (strlen(products[idx].name) == 0) {
+        printf(">> ID %d번은 등록되지 않은 상품입니다.\n", id);
+        return;
+    }
+
+    long long total_sales_amt = (long long)products[idx].sales_out * products[idx].price;
+    int current_stock = products[idx].stock_in - products[idx].sales_out;
+
+    printf("\n--- 상품 ID: %d 정보 ---\n", id);
+    printf("상품명    : %s\n", products[idx].name);
+    printf("상품가격  : %d원\n", products[idx].price);
+    printf("총 입고량 : %d개\n", products[idx].stock_in);
+    printf("총 판매량 : %d개\n", products[idx].sales_out);
+    printf("현재 재고 : %d개\n", current_stock);
+    printf("총판매금액: %lld원\n", total_sales_amt);
+    printf("----------------------\n");
+}
+
+void display_all_status() {
+    printf("\n[전체 상품 현황]\n");
+    printf("ID | 상품명               | 가격     | 입고 | 판매 | 재고 | 총판매금액\n");
+    printf("---|----------------------|----------|------|------|------|-----------\n");
+
+    long long grand_total_sales = 0;
+    int registered_count = 0;
+
+    for (int i = 0; i < MAX_PRODUCTS; i++) {
+        if (strlen(products[i].name) > 0) {
+            int current_stock = products[i].stock_in - products[i].sales_out;
+            long long total_sales_amt = (long long)products[i].sales_out * products[i].price;
+            grand_total_sales += total_sales_amt;
+            registered_count++;
+
+            printf("%-2d | %-20s | %8d | %4d | %4d | %4d | %10lld\n",
+                i + 1, products[i].name, products[i].price,
+                products[i].stock_in, products[i].sales_out,
+                current_stock, total_sales_amt);
+        }
+    }
+
+    if (registered_count == 0) {
+        printf(">> 등록된 상품이 없습니다.\n");
+    }
+    else {
+        printf("--------------------------------------------------------------------\n");
+        printf(">> 전체 총 매출액: %lld원\n", grand_total_sales);
+    }
+}
+
+void save_data() {
+    FILE* fp = fopen(DATA_FILE, "w");
+    if (fp == NULL) {
+        printf(">> 파일 저장 중 오류가 발생했습니다.\n");
+        return;
+    }
+
+    for (int i = 0; i < MAX_PRODUCTS; i++) {
+        if (strlen(products[i].name) > 0) {
+            fprintf(fp, "%d\n%s\n%d\n%d\n%d\n",
+                i + 1, products[i].name, products[i].price, products[i].stock_in, products[i].sales_out);
+        }
+    }
+
+    fclose(fp);
+    printf(">> 상품 정보가 '%s'에 성공적으로 저장되었습니다.\n", DATA_FILE);
+}
+
+void load_data() {
+    FILE* fp = fopen(DATA_FILE, "r");
+    if (fp == NULL) {
+        printf(">> 저장된 파일이 없습니다. 새로 시작합니다.\n");
+        return;
+    }
+
+    initialize_products();
+
+    int id, price, in, out;
+    char name[100];
+    int count = 0;
+
+    while (fscanf(fp, "%d", &id) != EOF) {
+        fgetc(fp);
+        if (fgets(name, sizeof(name), fp) == NULL) break;
+        name[strcspn(name, "\n")] = 0;
+        fscanf(fp, "%d %d %d", &price, &in, &out);
+
+        if (id >= 1 && id <= MAX_PRODUCTS) {
+            int idx = id - 1;
+            strcpy(products[idx].name, name);
+            products[idx].price = price;
+            products[idx].stock_in = in;
+            products[idx].sales_out = out;
+            count++;
+        }
+    }
+
+    fclose(fp);
+    printf(">> '%s'에서 총 %d개의 상품 정보를 불러왔습니다.\n", DATA_FILE, count);
+}
