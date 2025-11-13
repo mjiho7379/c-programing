@@ -1,0 +1,418 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h> 
+
+#define MAX_NAME_LEN 100
+#define FILENAME "products.txt" 
+
+typedef struct {
+    int id;
+    char name[MAX_NAME_LEN];
+    int price;
+    int stock_in;
+    int sales_out;
+    long long total_sales_amount;
+    int current_inventory;
+    int is_registered;
+} Product;
+
+void clear_input_buffer();
+void initialize_products(Product products[], int capacity);
+void print_main_menu();
+void handle_stock_in(Product** p_products, int* p_capacity);
+void handle_sales_out(Product products[], int capacity);
+void display_product_info(const Product products[], int capacity);
+void display_all_status(const Product products[], int capacity);
+
+void save_products(const Product products[], int capacity);
+void load_products(Product** p_products, int* p_capacity);
+
+
+int main()
+{
+    Product* products = NULL;
+    int product_capacity = 5;
+
+    products = (Product*)malloc(product_capacity * sizeof(Product));
+    if (products == NULL) {
+        printf("초기 메모리 할당에 실패했습니다.\n");
+        return 1;
+    }
+    initialize_products(products, product_capacity);
+
+
+    int menu_selection;
+
+    while (1) {
+        print_main_menu();
+        printf("입력:");
+
+        if (scanf("%d", &menu_selection) != 1) {
+            clear_input_buffer();
+            printf("잘못된 입력입니다. 1~7 사이의 숫자를 입력해주세요.\n");
+            continue;
+        }
+        clear_input_buffer();
+
+        switch (menu_selection) {
+        case 1:
+            printf("1 << 입고메뉴실행(상품 갯수 초과 시 자동 확장)\n");
+            handle_stock_in(&products, &product_capacity);
+            break;
+        case 2:
+            printf("2 << 판매메뉴실행\n");
+            handle_sales_out(products, product_capacity);
+            break;
+        case 3:
+            display_product_info(products, product_capacity);
+            break;
+        case 4:
+            display_all_status(products, product_capacity);
+            break;
+        case 5:
+            save_products(products, product_capacity);
+            break;
+        case 6:
+            load_products(&products, &product_capacity);
+            break;
+        case 7:
+            printf("프로그램을 종료합니다.\n");
+            free(products);
+            return 0;
+        default:
+            printf("잘못된 메뉴 선택입니다. (1~7)\n");
+            break;
+        }
+    }
+
+    free(products);
+    return 0;
+}
+
+void clear_input_buffer() {
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF);
+}
+
+void initialize_products(Product products[], int capacity) {
+    for (int i = 0; i < capacity; i++) {
+        products[i].id = i + 1;
+        products[i].name[0] = '\0';
+        products[i].price = 0;
+        products[i].stock_in = 0;
+        products[i].sales_out = 0;
+        products[i].total_sales_amount = 0;
+        products[i].current_inventory = 0;
+        products[i].is_registered = 0;
+    }
+}
+
+void print_main_menu() {
+    printf("\n원하는 메뉴를 선택하세요.(1.입고, 2.판매, 3.개별현황, 4.전체현황, 5.상품저장, 6.상품불러오기, 7.종료)\n");
+}
+
+void save_products(const Product products[], int capacity) {
+    FILE* fp = fopen(FILENAME, "w");
+    if (fp == NULL) {
+        printf("파일을 열 수 없습니다. 저장을 실패했습니다.\n");
+        return;
+    }
+
+    fprintf(fp, "%d\n", capacity);
+
+    for (int i = 0; i < capacity; i++) {
+        const Product* p = &products[i];
+        fprintf(fp, "%d\n", p->id);
+        fprintf(fp, "%s\n", p->name);
+        fprintf(fp, "%d\n", p->price);
+        fprintf(fp, "%d\n", p->stock_in);
+        fprintf(fp, "%d\n", p->sales_out);
+        fprintf(fp, "%lld\n", p->total_sales_amount);
+        fprintf(fp, "%d\n", p->current_inventory);
+        fprintf(fp, "%d\n", p->is_registered);
+    }
+
+    fclose(fp);
+    printf(">> 상품 정보가 '%s' 파일에 성공적으로 저장되었습니다.\n", FILENAME);
+}
+
+void load_products(Product** p_products, int* p_capacity) {
+    FILE* fp = fopen(FILENAME, "r");
+    if (fp == NULL) {
+        printf(">> 저장된 '%s' 파일이 없습니다. 새 데이터로 시작합니다.\n", FILENAME);
+        return;
+    }
+
+    int new_capacity = 0;
+    if (fscanf(fp, "%d", &new_capacity) != 1) {
+        printf(">> 파일이 비어있거나 형식이 잘못되었습니다.\n");
+        fclose(fp);
+        return;
+    }
+
+    fgetc(fp);
+
+    if (new_capacity <= 0) {
+        printf(">> 저장된 데이터가 없습니다.\n");
+        fclose(fp);
+        return;
+    }
+
+    if (*p_products != NULL) {
+        free(*p_products);
+    }
+
+    *p_products = (Product*)malloc(new_capacity * sizeof(Product));
+    if (*p_products == NULL) {
+        printf("파일 불러오기 중 메모리 할당에 실패했습니다.\n");
+        fclose(fp);
+        exit(1);
+    }
+    *p_capacity = new_capacity;
+
+    for (int i = 0; i < new_capacity; i++) {
+        Product* p = &((*p_products)[i]);
+
+        fscanf(fp, "%d", &p->id); fgetc(fp);
+
+        if (fgets(p->name, MAX_NAME_LEN, fp) == NULL) break;
+        p->name[strcspn(p->name, "\n")] = 0;
+
+        fscanf(fp, "%d", &p->price); fgetc(fp);
+        fscanf(fp, "%d", &p->stock_in); fgetc(fp);
+        fscanf(fp, "%d", &p->sales_out); fgetc(fp);
+        fscanf(fp, "%lld", &p->total_sales_amount); fgetc(fp);
+        fscanf(fp, "%d", &p->current_inventory); fgetc(fp);
+        fscanf(fp, "%d", &p->is_registered); fgetc(fp);
+    }
+
+    fclose(fp);
+    printf(">> '%s' 파일에서 %d개 용량의 상품 정보를 불러왔습니다.\n", FILENAME, new_capacity);
+}
+
+
+void handle_stock_in(Product** p_products, int* p_capacity) {
+    int id;
+    int stock_quantity;
+    int price;
+    char name[MAX_NAME_LEN];
+
+    printf("상품ID : (입력)");
+    if (scanf("%d", &id) != 1) {
+        clear_input_buffer();
+        printf("ID는 숫자로 입력해야 합니다.\n");
+        return;
+    }
+    clear_input_buffer();
+
+    if (id < 1) {
+        printf("상품 ID는 1 이상이어야 합니다.\n");
+        return;
+    }
+
+    if (id > *p_capacity) {
+        int new_capacity = id;
+        printf("상품 DB 용량을 %d(으)로 확장합니다...\n", new_capacity);
+
+        Product* new_arr = (Product*)realloc(*p_products, new_capacity * sizeof(Product));
+        if (new_arr == NULL) {
+            printf("메모리 재할당에 실패했습니다. 변경사항이 저장되지 않습니다.\n");
+            return;
+        }
+
+        for (int i = *p_capacity; i < new_capacity; i++) {
+            new_arr[i].id = i + 1;
+            new_arr[i].name[0] = '\0';
+            new_arr[i].price = 0;
+            new_arr[i].stock_in = 0;
+            new_arr[i].sales_out = 0;
+            new_arr[i].total_sales_amount = 0;
+            new_arr[i].current_inventory = 0;
+            new_arr[i].is_registered = 0;
+        }
+
+        *p_products = new_arr;
+        *p_capacity = new_capacity;
+    }
+
+    Product* p = &((*p_products)[id - 1]);
+
+    printf("상품명 : (입력)");
+    if (fgets(name, MAX_NAME_LEN, stdin) == NULL) return;
+    name[strcspn(name, "\n")] = 0;
+
+    strcpy(p->name, name);
+
+    printf("입고량 : (입력)");
+    if (scanf("%d", &stock_quantity) != 1 || stock_quantity < 0) {
+        clear_input_buffer();
+        printf("입고 수량은 0 이상의 숫자로 입력해야 합니다.\n");
+        return;
+    }
+    clear_input_buffer();
+
+    printf("판매가격 : (입력)");
+    if (scanf("%d", &price) != 1 || price < 0) {
+        clear_input_buffer();
+        printf("가격은 0 이상의 숫자로 입력해야 합니다.\n");
+        return;
+    }
+    clear_input_buffer();
+
+    p->price = price;
+    p->stock_in += stock_quantity;
+    p->current_inventory += stock_quantity;
+    p->is_registered = 1;
+}
+
+void handle_sales_out(Product products[], int capacity) {
+    int id;
+    int sales_quantity;
+
+    printf("상품ID : (입력)");
+    if (scanf("%d", &id) != 1) {
+        clear_input_buffer();
+        printf("ID는 숫자로 입력해야 합니다.\n");
+        return;
+    }
+    clear_input_buffer();
+
+    if (id < 1 || id > capacity) {
+        printf("잘못된 상품 ID입니다. (1~%d)\n", capacity);
+        return;
+    }
+
+    Product* p = &products[id - 1];
+
+    if (!p->is_registered) {
+        printf("상품 ID %d는 등록되지 않은 상품입니다. 입고 메뉴에서 먼저 등록해주세요.\n", id);
+        return;
+    }
+
+    printf("판매량 : (입력)");
+    if (scanf("%d", &sales_quantity) != 1 || sales_quantity < 0) {
+        clear_input_buffer();
+        printf("판매 수량은 0 이상의 숫자로 입력해야 합니다. 판매를 취소합니다.\n");
+        return;
+    }
+    clear_input_buffer();
+
+    if (sales_quantity > p->current_inventory) {
+        printf("재고가 부족합니다! (요청 수량: %d, 현재 재고: %d)\n", sales_quantity, p->current_inventory);
+        return;
+    }
+
+    p->sales_out += sales_quantity;
+    p->current_inventory -= sales_quantity;
+    p->total_sales_amount += (long long)sales_quantity * p->price;
+}
+
+void display_product_info(const Product products[], int capacity) {
+    int id;
+    printf("\n--- 3. 개별 상품 정보 ---\n");
+    printf("정보를 확인할 상품 ID (1~%d)를 입력하세요: ", capacity);
+    if (scanf("%d", &id) != 1) {
+        clear_input_buffer();
+        printf("ID는 숫자로 입력해야 합니다.\n");
+        return;
+    }
+    clear_input_buffer();
+
+    if (id < 1 || id > capacity) {
+        printf("잘못된 상품 ID입니다. (1~%d)\n", capacity);
+        return;
+    }
+
+    const Product* p = &products[id - 1];
+
+    if (!p->is_registered) {
+        printf("상품 ID %d는 등록되지 않은 상품입니다.\n", id);
+        return;
+    }
+
+    printf("\n--- 상품 ID %d 정보 ---\n", id);
+    printf("상품명: %s\n", p->name);
+    printf("판매 가격: %d원\n", p->price);
+    printf("총 입고 수량: %d개\n", p->stock_in);
+    printf("총 판매 수량: %d개\n", p->sales_out);
+    printf("현재 재고 수량: %d개\n", p->current_inventory);
+    printf("총 판매 금액: %lld원\n", p->total_sales_amount);
+    printf("---------------------------\n");
+}
+
+void display_all_status(const Product products[], int capacity) {
+    printf("\n--- 4. 전체 상품 현황 ---\n");
+    printf("| ID | %-20s | %-6s | %-6s | %-6s | %-6s | %-10s |\n",
+        "상품명", "가격", "입고량", "판매량", "재고량", "총판매금액");
+    printf("|----|----------------------|--------|--------|--------|--------|------------|\n");
+
+    long long grand_total_sales_amount = 0;
+    int grand_total_stock_in = 0;
+    int grand_total_sales_out = 0;
+    int registered_count = 0;
+
+    int max_sales = -1;
+    int min_sales = -1;
+    int max_id = -1;
+    int min_id = -1;
+
+    for (int i = 0; i < capacity; i++) {
+        const Product* p = &products[i];
+        if (p->is_registered) {
+            printf("| %-2d | %-20s | %-6d | %-6d | %-6d | %-6d | %-10lld |\n",
+                p->id, p->name, p->price, p->stock_in, p->sales_out, p->current_inventory, p->total_sales_amount);
+
+            grand_total_sales_amount += p->total_sales_amount;
+            grand_total_stock_in += p->stock_in;
+            grand_total_sales_out += p->sales_out;
+            registered_count++;
+
+            if (max_id == -1 || p->sales_out > max_sales) {
+                max_sales = p->sales_out;
+                max_id = p->id;
+            }
+            if (min_id == -1 || p->sales_out < min_sales) {
+                min_sales = p->sales_out;
+                min_id = p->id;
+            }
+        }
+    }
+
+    if (registered_count == 0) {
+        printf("| 등록된 상품이 없습니다.\n");
+        printf("|--------------------------------------------------------------------------|\n");
+        return;
+    }
+
+    printf("|--------------------------------------------------------------------------|\n");
+
+    printf("**재고 부족 상품** (2개 이하):\n");
+    int warning_count = 0;
+    for (int i = 0; i < capacity; i++) {
+        if (products[i].is_registered && products[i].current_inventory <= 2) {
+            printf("   - ID %d: '%s' (현재 재고: %d개)\n",
+                products[i].id, products[i].name, products[i].current_inventory);
+            warning_count++;
+        }
+    }
+    if (warning_count == 0) {
+        printf("   - 재고 부족 상품이 없습니다.\n");
+    }
+
+    double sales_rate = (grand_total_stock_in > 0) ? (double)grand_total_sales_out / grand_total_stock_in * 100.0 : 0.0;
+
+    printf("\n**전체 요약:**\n");
+    printf("   - 총 입고 수량: %d개\n", grand_total_stock_in);
+    printf("   - 총 판매 수량: %d개 (전체 판매율: %.2f%%)\n", grand_total_sales_out, sales_rate);
+    printf("   - 총 판매 금액: %lld원\n", grand_total_sales_amount);
+
+    if (max_id != -1) {
+        printf("   - Best) 가장 많이 판매된 상품: ID %d, '%s' (판매량: %d)\n",
+            products[max_id - 1].id, products[max_id - 1].name, max_sales);
+    }
+    if (min_id != -1) {
+        printf("   - Worst) 가장 적게 판매된 상품: ID %d, '%s' (판매량: %d)\n",
+            products[min_id - 1].id, products[min_id - 1].name, min_sales);
+    }
+    printf("----------------------------------------------------------------------------\n");
+}
